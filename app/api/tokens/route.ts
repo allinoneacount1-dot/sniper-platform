@@ -1,8 +1,6 @@
-// app/api/tokens/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getNewTokens, getPumpFunTokens } from '@/lib/gmgn/client';
-import { prisma } from '@/lib/db/prisma';
-import { analyzeRisk } from '@/lib/risk/engine';
+import { searchTokens, getTokenPairs, toTokenData, DexPair } from '@/lib/dexscreener/client';
+import { analyzeRisk, gradeColor, gradeBgColor } from '@/lib/risk/engine';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,72 +8,70 @@ export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'new'; // new | pump | cached
+    const type = searchParams.get('type') || 'solana';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
-    const minRisk = parseInt(searchParams.get('minRisk') || '0');
-    const maxRisk = parseInt(searchParams.get('maxRisk') || '100');
-    const minLiquidity = parseFloat(searchParams.get('minLiquidity') || '0');
+    const mint = searchParams.get('mint');
 
-    // Option 1: Return from cache (fast, for dashboard)
-    if (type === 'cached') {
-      const tokens = await prisma.tokenCache.findMany({
-        where: {
-          riskScore: { gte: minRisk, lte: maxRisk },
-          liquidityUsd: { gte: minLiquidity },
+    // Single token lookup
+    if (mint) {
+      const pairs = await getTokenPairs(mint);
+      if (!pairs || pairs.length === 0) {
+        return NextResponse.json({ error: 'Token not found' }, { status: 404 });
+      }
+      const token = toTokenData(pairs[0]);
+      const risk = await analyzeRisk(mint);
+      return NextResponse.json({
+        token: {
+          ...token,
+          riskScore: risk.score,
+          riskGrade: risk.grade,
+          gradeColor: gradeColor(risk.grade),
+          gradeBg: gradeBgColor(risk.grade),
+          factors: risk.factors,
+          warnings: risk.warnings,
+          recommendation: risk.recommendation,
         },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
       });
-      return NextResponse.json({ source: 'cache', data: tokens, count: tokens.length });
     }
 
-    // Option 2: Fetch fresh from GMGN
-    const rawTokens = type === 'pump'
-      ? await getPumpFunTokens(limit)
-      : await getNewTokens(limit);
+    // Search solana memecoins / trending
+    let pairs: DexPair[] = [];
+    if (type === 'solana') {
+      pairs = await searchTokens('solana');
+    } else {
+      pairs = await searchTokens(type);
+    }
 
-    // Enrich with risk scores (limit to first 10 to avoid timeout)
+    const sliced = pairs.slice(0, limit);
+
+    // Enrich top 5 with risk scores
     const enriched = await Promise.all(
-      rawTokens.slice(0, 10).map(async (t) => {
+      sliced.slice(0, 5).map(async (p) => {
+        const token = toTokenData(p);
         try {
-          const risk = await analyzeRisk(t.mint);
-
-          // Cache in database
-          await prisma.tokenCache.upsert({
-            where: { mintAddress: t.mint },
-            create: {
-              mintAddress: t.mint,
-              symbol: t.symbol,
-              name: t.name,
-              decimals: t.decimals,
-              riskScore: risk.score,
-              riskFactors: risk.factors as any,
-              topHolderPct: risk.factors.topHolderPct,
-              holderCount: risk.factors.holderCount,
-              liquidityUsd: t.liquidity || risk.factors.liquidityUsd,
-              volumeUsd24h: t.volume24hr || risk.factors.volumeUsd24h,
-              priceUsd: t.price || risk.factors.priceUsd,
-              marketCap: risk.factors.marketCap,
-              isPumpFun: t.mint.endsWith('pump'),
-            },
-            update: {
-              riskScore: risk.score,
-              riskFactors: risk.factors as any,
-              liquidityUsd: t.liquidity || risk.factors.liquidityUsd,
-              volumeUsd24h: t.volume24hr || risk.factors.volumeUsd24h,
-              priceUsd: t.price || risk.factors.priceUsd,
-              updatedAt: new Date(),
-            },
-          });
-
-          return { ...t, risk: risk.score, grade: risk.grade, warnings: risk.warnings.length };
+          const risk = await analyzeRisk(token.mint);
+          return {
+            ...token,
+            riskScore: risk.score,
+            riskGrade: risk.grade,
+            gradeColor: gradeColor(risk.grade),
+            gradeBg: gradeBgColor(risk.grade),
+            warnings: risk.warnings,
+          };
         } catch {
-          return { ...t, risk: null, grade: '?', warnings: 0 };
+          return { ...token, riskScore: null, riskGrade: '?' };
         }
       })
     );
 
-    return NextResponse.json({ source: 'fresh', data: enriched, count: enriched.length });
+    // Remaining tokens without risk score (fast)
+    const rest = sliced.slice(5).map(toTokenData);
+
+    return NextResponse.json({
+      source: 'dexscreener',
+      data: [...enriched, ...rest],
+      count: enriched.length + rest.length,
+    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch tokens' },

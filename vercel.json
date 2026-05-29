@@ -3,18 +3,5 @@
   "framework": "nextjs",
   "buildCommand": "npx prisma generate && next build",
   "installCommand": "npm install",
-  "outputDirectory": ".next",
-  "routes": [
-    {
-      "src": "/api/webhook/telegram",
-      "methods": ["POST"],
-      "dest": "/api/webhook/telegram"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/scan",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "outputDirectory": ".next"
 }

@@ -16,16 +16,20 @@ export async function GET(request: NextRequest) {
   try {
     const result = await analyzeRisk(mint);
 
-    // Log scan
-    await prisma.scanLog.create({
-      data: {
-        mintAddress: mint,
-        riskScore: result.score,
-        riskFactors: result.factors as any,
-        warningsCount: result.warnings.length,
-        source: 'api',
-      },
-    });
+    // Log scan (non-blocking, don't fail if DB unavailable)
+    try {
+      await prisma.scanLog.create({
+        data: {
+          mintAddress: mint,
+          riskScore: result.score,
+          riskFactors: result.factors as any,
+          warningsCount: result.warnings.length,
+          source: 'api',
+        },
+      });
+    } catch {
+      // DB not connected — skip logging
+    }
 
     return NextResponse.json({
       ...result,
