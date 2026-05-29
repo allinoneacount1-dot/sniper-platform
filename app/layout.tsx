@@ -1,19 +1,20 @@
-// app/layout.tsx
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'Sniper Platform — AI Token Screener',
-  description: 'Real-time token risk screening and AI-powered sniping for Solana',
+  title: "Sniper Platform — AI-Powered Solana Token Risk Screener",
+  description: "Real-time on-chain analysis, liquidity tracking, and rug detection for Solana tokens. Snipe smarter, not harder.",
+  keywords: ["solana", "token", "sniper", "risk", "scanner", "crypto", "defi"],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-gray-950 text-white antialiased`}>
+      <body className="antialiased bg-[#0a0a0f] text-white min-h-screen">
         {children}
       </body>
     </html>
