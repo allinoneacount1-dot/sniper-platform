@@ -1,278 +1,297 @@
-// app/dashboard/[mint]/page.tsx
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { formatNumber, formatPrice, truncateAddress } from '@/lib/utils';
-import { RiskResult, TokenData } from '@/types';
-import Link from 'next/link';
+import { useState, useEffect, useRef } from "react";
+import { motion, useInView, useSpring, useTransform, useMotionValue } from "framer-motion";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  Shield, AlertTriangle, TrendingUp, TrendingDown, Droplets,
+  Activity, BarChart3, ExternalLink, ArrowLeft, Zap, Clock,
+  CheckCircle, XCircle, Info,
+} from "lucide-react";
 
-export default function TokenDetailPage() {
-  const { mint } = useParams<{ mint: string }>();
-  const [token, setToken] = useState<TokenData | null>(null);
-  const [risk, setRisk] = useState<RiskResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [scanning, setScanning] = useState(false);
+interface TokenDetail {
+  token: {
+    mint: string;
+    symbol: string;
+    name: string;
+    riskScore: number;
+    riskGrade: string;
+    gradeColor: string;
+    gradeBg: string;
+    factors: Record<string, unknown>;
+    warnings: string[];
+    info: string[];
+    recommendation: string;
+    price?: number;
+    liquidity?: number;
+    volume24h?: number;
+    marketCap?: number;
+    pairAddress?: string;
+  } | null;
+  error?: string;
+  loading: boolean;
+}
 
-  const scanToken = async () => {
-    setScanning(true);
-    try {
-      const res = await fetch(`/api/scan?mint=${mint}`);
-      const data = await res.json();
-      setRisk(data);
-    } catch (err) {
-      console.error('Scan error:', err);
-    } finally {
-      setScanning(false);
-    }
+const gradeConfig: Record<string, { bg: string; text: string; border: string; icon: typeof Shield }> = {
+  A: { bg: "bg-emerald-500/20", text: "text-emerald-400", border: "border-emerald-500/30", icon: Shield },
+  B: { bg: "bg-lime-500/20", text: "text-lime-400", border: "border-lime-500/30", icon: CheckCircle },
+  C: { bg: "bg-yellow-500/20", text: "text-yellow-400", border: "border-yellow-500/30", icon: Info },
+  D: { bg: "bg-orange-500/20", text: "text-orange-400", border: "border-orange-500/30", icon: AlertTriangle },
+  F: { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/30", icon: XCircle },
+};
+
+function AnimatedRing({ score, size = 160 }: { score: number; size?: number }) {
+  const [animated, setAnimated] = useState(0);
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true });
+
+  const radius = (size - 20) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (animated / 100) * circumference;
+
+  const getColor = (s: number) => {
+    if (s >= 80) return "#10b981";
+    if (s >= 60) return "#84cc16";
+    if (s >= 40) return "#eab308";
+    if (s >= 20) return "#f97316";
+    return "#ef4444";
   };
 
   useEffect(() => {
-    setLoading(true);
-    // Fetch from cache first
-    fetch(`/api/tokens?type=cached&limit=100`)
-      .then(res => res.json())
-      .then(data => {
-        const found = data.data?.find((t: any) => t.mintAddress === mint);
-        if (found) {
-          setToken({
-            mint: found.mintAddress,
-            symbol: found.symbol,
-            name: found.name,
-            price: found.priceUsd || 0,
-            liquidity: found.liquidityUsd || 0,
-            volume24hr: found.volumeUsd24h || 0,
-            isPumpFun: found.isPumpFun,
-            risk: found.riskScore,
-          });
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    if (!inView) return;
+    const start = Date.now();
+    const timer = setInterval(() => {
+      const p = Math.min((Date.now() - start) / 2000, 1);
+      setAnimated(Math.floor((1 - Math.pow(1 - p, 3)) * score));
+      if (p >= 1) clearInterval(timer);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [inView, score]);
 
-    // Always run fresh scan
-    scanToken();
-  }, [mint]);
+  const color = getColor(animated);
 
-  if (loading && !risk) {
+  return (
+    <div ref={ref} className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="10" />
+        <motion.circle
+          cx={size / 2} cy={size / 2} r={radius} fill="none"
+          stroke={color} strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          style={{ filter: `drop-shadow(0 0 10px ${color}60)` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <motion.span
+          key={animated}
+          initial={{ scale: 1.2, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="text-4xl font-black"
+          style={{ color }}
+        >
+          {animated}
+        </motion.span>
+        <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Risk Score</span>
+      </div>
+    </div>
+  );
+}
+
+function TiltCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const rotateX = useSpring(useTransform(y, [-100, 100], [5, -5]), { stiffness: 300, damping: 30 });
+  const rotateY = useSpring(useTransform(x, [-100, 100], [-5, 5]), { stiffness: 300, damping: 30 });
+
+  return (
+    <motion.div
+      style={{ rotateX, rotateY, transformPerspective: 1000 }}
+      onMouseMove={(e) => {
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        x.set((e.clientX - rect.left - rect.width / 2) * 0.3);
+        y.set((e.clientY - rect.top - rect.height / 2) * 0.3);
+      }}
+      onMouseLeave={() => { x.set(0); y.set(0); }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export default function TokenDetail() {
+  const params = useParams();
+  const mint = params.mint as string;
+  const [data, setData] = useState<TokenDetail>({ token: null, loading: true });
+  const [lastUpdate, setLastUpdate] = useState("");
+
+  const fetchToken = async () => {
+    setData({ token: null, loading: true });
+    try {
+      const res = await fetch(`/api/tokens?mint=${mint}`);
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const result = await res.json();
+      setData({ token: result.token, loading: false });
+      setLastUpdate(new Date().toLocaleTimeString());
+    } catch (e: unknown) {
+      setData({ token: null, loading: false, error: e instanceof Error ? e.message : "Failed" });
+    }
+  };
+
+  useEffect(() => { fetchToken(); }, [mint]);
+
+  if (data.loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-[#06060c] flex items-center justify-center">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            className="w-12 h-12 rounded-full border-2 border-violet-500/30 border-t-violet-500 mx-auto mb-4"
+          />
+          <p className="text-gray-500">Scanning token...</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (data.error || !data.token) {
+    return (
+      <div className="min-h-screen bg-[#06060c] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-3 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-gray-400">Analyzing token...</p>
+          <div className="text-5xl mb-4">😕</div>
+          <p className="text-gray-400 mb-4">{data.error || "Token not found"}</p>
+          <Link href="/dashboard" className="text-violet-400 hover:text-violet-300">← Back to Dashboard</Link>
         </div>
       </div>
     );
   }
 
+  const t = data.token;
+  const gc = gradeConfig[t.riskGrade] || gradeConfig["C"];
+  const GradeIcon = gc.icon;
+
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <Link href="/dashboard" className="text-sm text-gray-400 hover:text-white">
-            ← Back to Dashboard
+    <div className="min-h-screen bg-[#06060c] text-white pt-20 pb-12">
+      <div className="absolute inset-0 grid-pattern opacity-20 pointer-events-none" />
+
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
+        {/* Back */}
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-violet-400 transition-colors mb-8">
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </Link>
-          <Button onClick={scanToken} disabled={scanning} size="sm">
-            {scanning ? '⟳ Scanning...' : '↻ Re-Scan'}
-          </Button>
-        </div>
-      </header>
+        </motion.div>
 
-      <main className="max-w-[1200px] mx-auto p-6 space-y-6">
-        {/* Token Header */}
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl font-bold">
-            {token?.symbol?.[0] || '?'}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">{token?.symbol || 'Unknown Token'}</h1>
-            <p className="text-sm text-gray-400 font-mono">{mint}</p>
-          </div>
-          {token?.isPumpFun && <Badge variant="purple">Pump.fun</Badge>}
-        </div>
-
-        {risk && (
-          <>
-            {/* Risk Score */}
-            <div className="grid grid-cols-3 gap-6">
-              <Card className={`border ${
-                risk.score >= 80 ? 'border-green-500/30' :
-                risk.score >= 60 ? 'border-lime-500/30' :
-                risk.score >= 40 ? 'border-yellow-500/30' :
-                risk.score >= 20 ? 'border-orange-500/30' :
-                'border-red-500/30'
-              }`}>
-                <CardContent className="py-6 text-center">
-                  <p className="text-sm text-gray-400 mb-2">Risk Score</p>
-                  <p className={`text-5xl font-bold ${
-                    risk.score >= 80 ? 'text-green-400' :
-                    risk.score >= 60 ? 'text-lime-400' :
-                    risk.score >= 40 ? 'text-yellow-400' :
-                    risk.score >= 20 ? 'text-orange-400' :
-                    'text-red-400'
-                  }`}>
-                    {risk.score}
-                  </p>
-                  <p className="text-sm text-gray-400 mt-1">Grade: {risk.grade}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="py-6">
-                  <p className="text-sm text-gray-400 mb-4">Market Data</p>
-                  <div className="space-y-3">
-                    <DataRow label="Price" value={formatPrice(risk.factors.priceUsd)} />
-                    <DataRow label="Liquidity" value={formatNumber(risk.factors.liquidityUsd)} />
-                    <DataRow label="Volume 24h" value={formatNumber(risk.factors.volumeUsd24h)} />
-                    <DataRow label="Market Cap" value={formatNumber(risk.factors.marketCap)} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="py-6">
-                  <p className="text-sm text-gray-400 mb-4">Security Checks</p>
-                  <div className="space-y-2">
-                    <CheckItem label="Mint Authority" ok={!risk.factors.mintAuthority} />
-                    <CheckItem label="Freeze Authority" ok={!risk.factors.freezeAuthority} />
-                    <CheckItem label="Token Standard" ok={risk.factors.isSPLStandard || risk.factors.isToken2022} />
-                    <CheckItem label="Has Metadata" ok={risk.factors.hasMetadata} />
-                    <CheckItem label="Holder Concentration" ok={risk.factors.topHolderPct < 30} />
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="flex items-center gap-4 flex-1">
+              <motion.div
+                initial={{ scale: 0 }} animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+                className={`w-16 h-16 rounded-2xl border flex items-center justify-center text-2xl font-black ${gc.bg} ${gc.border} ${gc.text}`}
+              >
+                {t.riskGrade}
+              </motion.div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-black flex items-center gap-3">
+                  <span className="text-gradient-animated">{t.symbol || "Unknown"}</span>
+                </h1>
+                <p className="text-gray-500 mt-1">{t.name}</p>
+                <p className="text-xs text-gray-600 font-mono mt-1 break-all">{t.mint}</p>
+              </div>
             </div>
-
-            {/* Warnings */}
-            {risk.warnings.length > 0 && (
-              <Card className="border-red-500/30 bg-red-500/5">
-                <CardHeader>
-                  <CardTitle className="text-red-400 flex items-center gap-2">
-                    ⚠️ Warnings ({risk.warnings.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {risk.warnings.map((w, i) => (
-                      <li key={i} className="text-red-300 text-sm flex items-start gap-2">
-                        <span className="text-red-500 mt-0.5">•</span>
-                        {w}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Info */}
-            {risk.info.length > 0 && (
-              <Card className="border-blue-500/30 bg-blue-500/5">
-                <CardHeader>
-                  <CardTitle className="text-blue-400 flex items-center gap-2">
-                    ℹ️ Info
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {risk.info.map((info, i) => (
-                      <li key={i} className="text-blue-300 text-sm flex items-start gap-2">
-                        <span className="text-blue-500 mt-0.5">•</span>
-                        {info}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Recommendation */}
-            <Card>
-              <CardContent className="py-4">
-                <p className="text-sm text-gray-400 mb-1">Recommendation</p>
-                <p className="text-white font-medium">{risk.recommendation}</p>
-              </CardContent>
-            </Card>
-
-            {/* On-chain Details */}
-            <div className="grid grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>On-Chain Data</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <DataRow label="Holder Count" value={risk.factors.holderCount.toString()} />
-                    <DataRow label="Top Holder %" value={`${risk.factors.topHolderPct.toFixed(1)}%`} />
-                    <DataRow label="Token Program" value={
-                      risk.factors.isSPLStandard ? 'SPL Token' :
-                      risk.factors.isToken2022 ? 'Token-2022' :
-                      'Unknown'
-                    } />
-                    <DataRow label="Creator Holds High" value={risk.factors.creatorHoldsHigh ? 'YES ⚠️' : 'No'} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Risk Factors</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <FactorBar label="Supply Risk" value={risk.factors.mintAuthority ? 90 : 10} />
-                    <FactorBar label="Freeze Risk" value={risk.factors.freezeAuthority ? 80 : 5} />
-                    <FactorBar label="Concentration" value={Math.min(risk.factors.topHolderPct * 1.5, 100)} />
-                    <FactorBar label="Liquidity" value={risk.factors.liquidityUsd < 1000 ? 80 : risk.factors.liquidityUsd < 5000 ? 40 : 10} />
-                    <FactorBar label="Volume" value={risk.factors.volumeUsd24h < 500 ? 70 : 15} />
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Clock className="w-3 h-3" />
+              {lastUpdated}
             </div>
-          </>
-        )}
-      </main>
-    </div>
-  );
-}
+          </div>
+        </motion.div>
 
-function DataRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-center text-sm">
-      <span className="text-gray-400">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
-  );
-}
+        {/* Main Score + Grid */}
+        <div className="grid md:grid-cols-3 gap-5 mb-8">
+          {/* Risk Score Card */}
+          <TiltCard>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
+              className="glass neon-border rounded-2xl p-8 flex flex-col items-center justify-center stat-card">
+              <AnimatedRing score={t.riskScore} size={160} />
+              <div className={`mt-4 text-lg font-bold ${gc.text} flex items-center gap-2`}>
+                <GradeIcon className="w-5 h-5" />
+                Grade {t.riskGrade}
+              </div>
+              <p className="text-xs text-gray-500 mt-2 text-center max-w-[200px]">{t.recommendation}</p>
+            </motion.div>
+          </TiltCard>
 
-function CheckItem({ label, ok }: { label: string; ok: boolean }) {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className={ok ? 'text-green-400' : 'text-red-400'}>
-        {ok ? '✓' : '✗'}
-      </span>
-      <span className={ok ? 'text-gray-300' : 'text-red-300'}>{label}</span>
-    </div>
-  );
-}
+          {/* Quick Stats */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+            className="glass neon-border rounded-2xl p-6 space-y-4">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Market Data</h3>
+            {[
+              { icon: <BarChart3 className="w-4 h-4" />, label: "Price", value: t.price ? `$${t.price < 0.01 ? t.price.toExponential(2) : t.price.toFixed(6)}` : "—" },
+              { icon: <Droplets className="w-4 h-4" />, label: "Liquidity", value: t.liquidity ? `$${t.liquidity.toLocaleString()}` : "—" },
+              { icon: <Activity className="w-4 h-4" />, label: "Volume 24h", value: t.volume24h ? `$${t.volume24h.toLocaleString()}` : "—" },
+              { icon: <TrendingUp className="w-4 h-4" />, label: "Market Cap", value: t.marketCap ? `$${(t.marketCap / 1e6).toFixed(2)}M` : "—" },
+            ].map((s, i) => (
+              <motion.div key={s.label}
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 + i * 0.05 }}
+                className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-500 text-sm">{s.icon} {s.label}</div>
+                <div className="text-sm font-mono text-white">{s.value}</div>
+              </motion.div>
+            ))}
+          </motion.div>
 
-function FactorBar({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-400">{label}</span>
-        <span className="text-gray-500">{value.toFixed(0)}%</span>
-      </div>
-      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${
-            value > 60 ? 'bg-red-500' : value > 30 ? 'bg-yellow-500' : 'bg-green-500'
-          }`}
-          style={{ width: `${value}%` }}
-        />
+          {/* Warnings */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+            className="glass neon-border rounded-2xl p-6">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Analysis</h3>
+            {t.warnings.length > 0 ? (
+              <div className="space-y-2">
+                {t.warnings.map((w, i) => (
+                  <motion.div key={i}
+                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.6 + i * 0.05 }}
+                    className="flex items-start gap-2 text-xs text-amber-400/80 bg-amber-500/5 rounded-lg p-2">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    {w}
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-emerald-400 text-sm">
+                <Shield className="w-5 h-5" /> No warnings found
+              </div>
+            )}
+            {t.info.length > 0 && (
+              <div className="space-y-1.5 mt-4">
+                {t.info.map((inf, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
+                    <Info className="w-3 h-3 shrink-0" />{inf}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* External Links */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="flex flex-wrap gap-3">
+          <a href={`https://dexscreener.com/solana/${t.pairAddress || t.mint}`} target="_blank" rel="noopener noreferrer"
+            className="glass glass-hover rounded-xl px-5 py-3 text-sm text-gray-300 hover:text-white neon-border inline-flex items-center gap-2">
+            DexScreener <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+          <a href={`https://solscan.io/token/${t.mint}`} target="_blank" rel="noopener noreferrer"
+            className="glass glass-hover rounded-xl px-5 py-3 text-sm text-gray-300 hover:text-white neon-border inline-flex items-center gap-2">
+            Solscan <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+          <a href={`https://photon-sol.tinyastro.io/en/lp/${t.mint}`} target="_blank" rel="noopener noreferrer"
+            className="glass glass-hover rounded-xl px-5 py-3 text-sm text-gray-300 hover:text-white neon-border inline-flex items-center gap-2">
+            Photon <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </motion.div>
       </div>
     </div>
   );

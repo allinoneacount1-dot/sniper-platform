@@ -1,280 +1,195 @@
 "use client";
-import { useState } from "react";
-import { GlassCard, Badge } from "@/components/ui/animated";
 
-const sections = [
-  {
-    id: "getting-started",
-    title: "🚀 Getting Started",
-    content: `## What is Sniper Platform?
+import { useState, useRef } from "react";
+import { motion, useInView, AnimatePresence } from "framer-motion";
+import {
+  Shield, Zap, Code, Play, Copy, Check,
+  BookOpen, ArrowRight, AlertTriangle,
+} from "lucide-react";
+import Link from "next/link";
 
-Sniper Platform is an AI-powered Solana token risk screener that helps you identify potentially dangerous tokens before you invest.
-
-## How It Works
-
-1. Data Aggregation — We pull real-time data from DexScreener, Helius (Solana RPC), and CoinMarketCap
-2. On-Chain Analysis — Each token is analyzed against 10+ risk factors
-3. Risk Grading — Tokens are graded A (safest) to F (dangerous)
-4. Real-Time Alerts — Get notified via Telegram
-
-## Quick Start
-
-Dashboard: Visit /dashboard to see real-time token list
-
-API Endpoints:
-GET /api/tokens?limit=20&type=trending
-GET /api/scan?mint=ADDRESS
-POST /api/scan with body { "mints": [...] }
-
-## Supported Chains
-
-Currently focused on Solana with plans to support Ethereum, Base, and BSC.`,
-  },
-  {
-    id: "api-reference",
-    title: "📡 API Reference",
-    content: `## Base URL
-
-https://sniper-platform.vercel.app
-
-## GET /api/tokens
-
-Fetch list of tokens with risk data.
-
-Query Parameters:
-- type: trending | boosted | profiles (default: trending)
-- limit: Max tokens (default: 50, max: 100)
-- mint: Single token lookup (optional)
-
-Example Response:
-{
-  "source": "dexscreener",
-  "type": "trending",
-  "data": [
-    {
-      "mint": "...",
-      "symbol": "DOGEUS",
-      "name": "Dogeus Maximus",
-      "price": 0.00004254,
-      "liquidity": 15767.11,
-      "volume24h": 90974.96,
-      "change24h": 12.5,
-      "marketCap": 42540,
-      "riskScore": 45,
-      "riskGrade": "C",
-      "warnings": ["Mint authority is ACTIVE"],
-      "dexId": "pumpswap"
-    }
-  ],
-  "count": 20
+function FadeIn(props: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { children, delay = 0, className = "" } = props;
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+  return (
+    <motion.div ref={ref}
+      initial={{ opacity: 0, y: 30 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
-## GET /api/scan?mint=ADDRESS
-
-Scan a single token by mint address.
-
-## POST /api/scan
-
-Batch scan multiple tokens. Body: { "mints": ["addr1", "addr2"] }
-
-## Rate Limits
-
-- 60 requests per minute per IP
-- Each risk scan takes 2-5 seconds
-- Batch scans limited to 20 tokens per request`,
-  },
-  {
-    id: "risk-factors",
-    title: "⚠️ Risk Factors",
-    content: `## Risk Scoring System
-
-Each token is scored from 0-100 (higher = safer).
-
-### Critical Factors (-20 to -25 points)
-
-- Mint Authority Active (-25 pts) — Team can mint unlimited new tokens
-- Freeze Authority Active (-20 pts) — Team can freeze all transfers
-- Honeypot Contract (-25 pts) — Buy but cannot sell
-
-### High Risk Factors (-10 to -15 points)
-
-- Top Holder > 50% (-20 pts) — Extreme concentration risk
-- Top Holder > 30% (-10 pts) — High whale concentration
-- Non-Standard Program (-15 pts) — Not standard SPL token
-- Liquidity < $1,000 (-10 pts) — Very easy to manipulate
-
-### Moderate Risk Factors (-5 points each)
-
-- Top Holder > 15% — Some concentration risk
-- Liquidity < $5,000 — Low liquidity risk
-- Volume < $500/day — Low trading activity
-- Pump.fun Token — Higher scam probability
-- No Metadata — No name/symbol on-chain
-
-### Grade Scale
-
-| Grade | Score | Meaning |
-|-------|-------|---------|
-| A | 80-100 | Relatively safe |
-| B | 60-79 | Moderate risk |
-| C | 40-59 | High risk |
-| D | 20-39 | Very high risk |
-| F | 0-19 | Likely scam |`,
-  },
-  {
-    id: "wallet",
-    title: "👛 Wallet Integration",
-    content: `## Connect Your Wallet
-
-Sniper Platform supports leading Solana wallets:
-
-### Supported Wallets
-
-- Phantom — Most popular Solana wallet
-- Solflare — Feature-rich alternative
-- Backpack — xNFT compatible
-- Glow — Browser extension
-- Coin98 — Multi-chain support
-
-### How It Works
-
-1. Click "Connect Wallet" in the top navigation
-2. Select your wallet provider
-3. Approve the connection in your wallet popup
-4. Your wallet address is now connected!
-
-### Security
-
-- We never store your private keys
-- We never request transactions without your approval
-- All connections are read-only by default
-- You can disconnect at any time
-
-### Connected Features
-
-- View your token balances
-- Track your portfolio value
-- Get personalized risk alerts for tokens you hold
-- One-click scan for any token in your wallet`,
-  },
-  {
-    id: "telegram",
-    title: "📱 Telegram Bot",
-    content: `## Set Up Telegram Alerts
-
-Get real-time token alerts delivered to your Telegram.
-
-### Bot Commands
-
-- /start — Initialize bot and get welcome message
-- /scan ADDRESS — Scan any Solana token
-- /trending — Get top trending tokens
-- /alerts — Configure alert preferences
-- /mytokens — Track your watched tokens
-- /help — Show all commands
-
-### Alert Types
-
-- 🚨 Rug Alert — High-risk token detected
-- 🟢 New Safe Token — A/B grade token just launched
-- 📊 Market Alert — Price/volume spike detected`,
-  },
-];
+const codeExamples: Record<string, string> = {
+  scan: "curl -s \"https://sniper-platform.vercel.app/api/scan?mint=HausrAQNm12gRBoYkJYpCALEi6gxobZnG6NWk8pvpump\" | jq .",
+  batch: "curl -X POST \"https://sniper-platform.vercel.app/api/scan\" -H \"Content-Type: application/json\" -d '{\"mints\": [\"MINT1...\"]}'",
+  tokens: "curl -s \"https://sniper-platform.vercel.app/api/tokens?type=trending&limit=10\" | jq .data[0]",
+  single: "curl -s \"https://sniper-platform.vercel.app/api/tokens?mint=ADDRESS\" | jq .token.riskGrade",
+};
 
 export default function DocsPage() {
-  const [active, setActive] = useState("getting-started");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("scan");
+  const [copied, setCopied] = useState(false);
+  const [scanMint, setScanMint] = useState("");
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
 
-  const filteredSections = searchQuery
-    ? sections.filter(s => s.title.toLowerCase().includes(searchQuery.toLowerCase()) || s.content.toLowerCase().includes(searchQuery.toLowerCase()))
-    : sections;
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  const activeSection = sections.find(s => s.id === active);
-
-  const renderContent = (text: string) => {
-    return text.split("\n").map((line, i) => {
-      if (line.startsWith("## ")) {
-        return <h2 key={i} className="text-xl sm:text-2xl font-bold text-white mt-6 mb-3">{line.replace("## ", "")}</h2>;
-      }
-      if (line.startsWith("### ")) {
-        return <h3 key={i} className="text-lg font-bold text-violet-300 mt-4 mb-2">{line.replace("### ", "")}</h3>;
-      }
-      if (line.startsWith("- **")) {
-        const parts = line.replace("- **", "").split("**");
-        return (
-          <div key={i} className="flex items-start gap-2 ml-4 my-1">
-            <span className="text-violet-400 mt-1">•</span>
-            <span className="text-gray-300"><strong className="text-white">{parts[0]}</strong>{parts[1] || ""}</span>
-          </div>
-        );
-      }
-      if (line.startsWith("- ")) {
-        return (
-          <div key={i} className="flex items-start gap-2 ml-4 my-0.5">
-            <span className="text-violet-400 mt-1">•</span>
-            <span className="text-gray-300">{line.replace("- ", "")}</span>
-          </div>
-        );
-      }
-      if (line.startsWith("|")) {
-        return <div key={i} className="font-mono text-xs text-gray-300 bg-white/5 px-3 py-1.5 rounded my-0.5 overflow-x-auto">{line}</div>;
-      }
-      if (line.trim() === "") return <div key={i} className="h-2" />;
-      return <p key={i} className="text-gray-300 text-sm leading-relaxed my-1">{line}</p>;
-    });
+  const tryScan = async () => {
+    if (!scanMint.trim()) return;
+    setScanLoading(true);
+    try {
+      const res = await fetch(`/api/scan?mint=${scanMint.trim()}`);
+      const data = await res.json();
+      setScanResult(JSON.stringify(data, null, 2));
+    } catch {
+      setScanResult("{\"error\": \"Scan failed\"}");
+    }
+    setScanLoading(false);
   };
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-black mb-2">
-            📖 <span className="gradient-text">Documentation</span>
-          </h1>
-          <p className="text-gray-500 text-sm">Everything you need to know about Sniper Platform</p>
+    <div className="min-h-screen bg-[#06060c] text-white pt-20 pb-16">
+      <div className="absolute inset-0 grid-pattern opacity-20 pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-violet-600/[0.05] blur-[150px] pointer-events-none" />
+
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
+        <FadeIn>
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 mb-6">
+              <BookOpen className="w-3.5 h-3.5" /> Documentation
+            </div>
+            <h1 className="text-4xl md:text-6xl font-black">
+              API <span className="text-gradient-animated">Reference</span>
+            </h1>
+            <p className="mt-4 text-gray-400 max-w-xl mx-auto">
+              Integrate Sniper Platform into your trading bot, Telegram bot, or custom app.
+            </p>
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={0.1}>
+          <div className="glass neon-border rounded-2xl p-6 md:p-8 mb-8">
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+              <Zap className="w-5 h-5 text-violet-400" /> Quick Start
+            </h2>
+            <div className="space-y-4 text-sm text-gray-400">
+              <p>All API endpoints are <span className="text-white font-mono">GET</span> or <span className="text-white font-mono">POST</span> and return <span className="text-white font-mono">JSON</span>.</p>
+              <div className="bg-white/[0.03] rounded-xl p-4 font-mono text-xs overflow-x-auto text-violet-400">
+                https://sniper-platform.vercel.app
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={0.2}>
+          <h2 className="text-2xl font-bold mb-6">Endpoints</h2>
+        </FadeIn>
+
+        <div className="space-y-4 mb-12">
+          {[
+            { method: "GET", path: "/api/scan?mint={address}", desc: "Deep scan a single token. Returns risk score, grade, factors, warnings.", color: "bg-emerald-500/20 text-emerald-400" },
+            { method: "POST", path: "/api/scan", desc: "Batch scan up to 20 tokens. Body: { mints: string[] }.", color: "bg-blue-500/20 text-blue-400" },
+            { method: "GET", path: "/api/tokens?type=trending", desc: "List tokens (trending | boosted | profiles). Optional limit.", color: "bg-violet-500/20 text-violet-400" },
+            { method: "GET", path: "/api/tokens?mint={address}", desc: "Get detailed data for a single token.", color: "bg-cyan-500/20 text-cyan-400" },
+          ].map((ep, i) => (
+            <FadeIn key={ep.path} delay={0.25 + i * 0.05}>
+              <motion.div whileHover={{ x: 4 }} className="glass neon-border rounded-xl p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <span className={`px-2.5 py-1 text-xs font-bold rounded-lg border shrink-0 ${ep.color}`}>{ep.method}</span>
+                  <code className="text-sm text-gray-300 font-mono break-all">{ep.path}</code>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">{ep.desc}</p>
+              </motion.div>
+            </FadeIn>
+          ))}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar */}
-          <div className="lg:w-64 shrink-0">
-            <GlassCard className="p-4 sticky top-24">
-              <input
-                type="text"
-                placeholder="Search docs..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/30 mb-3"
-              />
-              <nav className="space-y-1">
-                {sections.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => { setActive(s.id); setSearchQuery(""); }}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                      active === s.id
-                        ? "bg-violet-500/15 text-violet-300 border border-violet-500/20"
-                        : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
-                    }`}
-                  >
-                    {s.title}
+        <FadeIn delay={0.3}>
+          <h2 className="text-2xl font-bold mb-6">Try It</h2>
+          <div className="glass neon-border rounded-2xl p-6 mb-12">
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <input type="text" value={scanMint} onChange={(e) => setScanMint(e.target.value)}
+                placeholder="Paste token mint address..."
+                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-violet-500/40 transition-colors font-mono" />
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={tryScan} disabled={scanLoading}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-sm flex items-center gap-2 shrink-0 disabled:opacity-50">
+                {scanLoading ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Zap className="w-4 h-4" /></motion.div> : <Play className="w-4 h-4" />}
+                Scan
+              </motion.button>
+            </div>
+            <AnimatePresence>
+              {scanResult && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                  <pre className="bg-black/40 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto max-h-80 overflow-y-auto border border-white/[0.04]">{scanResult}</pre>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-3 overflow-x-auto">
+                {Object.keys(codeExamples).map((key) => (
+                  <button key={key} onClick={() => setActiveTab(key)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${activeTab === key ? "bg-violet-500/20 text-violet-300 border border-violet-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
+                    {key}
                   </button>
                 ))}
-              </nav>
-              <div className="mt-4 pt-4 border-t border-white/5">
-                <Badge variant="info">API v1.0</Badge>
               </div>
-            </GlassCard>
+              <div className="relative bg-black/40 rounded-xl p-4 border border-white/[0.04]">
+                <pre className="text-xs font-mono text-gray-300 overflow-x-auto">{codeExamples[activeTab]}</pre>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={() => copyToClipboard(codeExamples[activeTab])}
+                  className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-gray-500" />}
+                </motion.button>
+              </div>
+            </div>
           </div>
+        </FadeIn>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {activeSection && (
-              <GlassCard className="p-6 sm:p-8">
-                {renderContent(activeSection.content)}
-              </GlassCard>
-            )}
+        <FadeIn delay={0.4}>
+          <h2 className="text-2xl font-bold mb-6">Response Format</h2>
+          <div className="glass neon-border rounded-2xl p-6 mb-12">
+            <pre className="text-xs font-mono text-gray-300 overflow-x-auto">
+{`{
+  "score": 75, "grade": "B",
+  "factors": {
+    "mintAuthority": false,
+    "freezeAuthority": false,
+    "isSPLStandard": true,
+    "topHolderPct": 12.5,
+    "liquidityUsd": 45000,
+    "volumeUsd24h": 120000
+  },
+  "warnings": [],
+  "recommendation": "Moderate risk."
+}`}
+            </pre>
           </div>
-        </div>
+        </FadeIn>
+
+        <FadeIn delay={0.5}>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 glass neon-border rounded-2xl p-6">
+            <span className="text-gray-500 text-sm">Need help?</span>
+            <div className="flex items-center gap-3">
+              <a href="https://github.com/allinoneacount1-dot/sniper-platform" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl glass glass-hover text-gray-300 hover:text-white transition-colors">
+                <Code className="w-4 h-4" /> GitHub
+              </a>
+              <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold hover:opacity-90 transition-opacity">
+                Dashboard <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </FadeIn>
       </div>
     </div>
   );
