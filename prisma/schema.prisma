@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  walletAddress String?   @unique
+  email         String?   @unique
+  name          String?
+  telegramId    String?   @unique
+  apiKey        String?   @unique @default(uuid())
+  plan          Plan      @default(FREE)
+  balance       Decimal   @default(0) @db.Decimal(20, 9)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  trades        Trade[]
+  alerts        Alert[]
+  agents        Agent[]
+}
+
+model Trade {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
+  mintAddress    String
+  symbol         String?
+  txHash         String?     @unique
+  solSpent       Decimal     @db.Decimal(20, 9)
+  tokensReceived Decimal?    @db.Decimal(20, 9)
+  price          Decimal?    @db.Decimal(30, 18)
+  fee            Decimal     @default(0) @db.Decimal(20, 9)
+  status         TradeStatus @default(PENDING)
+  error          String?
+  createdAt      DateTime    @default(now())
+  confirmedAt    DateTime?
+
+  @@index([userId, createdAt])
+  @@index([mintAddress, createdAt])
+}
+
+model TokenCache {
+  mintAddress      String   @id
+  symbol           String?
+  name             String?
+  decimals         Int      @default(6)
+  supply           String?
+  riskScore        Int      @default(50)
+  riskFactors      Json     @default("{}")
+  mintAuthority    String?
+  freezeAuthority  String?
+  topHolderPct     Decimal? @db.Decimal(5, 2)
+  holderCount      Int      @default(0)
+  liquidityUsd     Decimal  @default(0) @db.Decimal(20, 2)
+  volumeUsd24h     Decimal  @default(0) @db.Decimal(20, 2)
+  priceUsd         Decimal? @db.Decimal(30, 18)
+  marketCap        Decimal? @db.Decimal(20, 2)
+  bondingCurve     String?
+  creator          String?
+  isPumpFun        Boolean  @default(false)
+  graduated        Boolean  @default(false)
+  txCount          Int      @default(0)
+  holdersUpdatedAt DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([isPumpFun, createdAt])
+  @@index([riskScore, updatedAt])
+  @@index([liquidityUsd, updatedAt])
+  @@index([volumeUsd24h, updatedAt])
+}
+
+model Alert {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  type          AlertType
+  mintAddress   String?
+  label         String?
+  config        Json      @default("{}")
+  isActive      Boolean   @default(true)
+  lastTriggered DateTime?
+  triggerCount  Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, isActive])
+}
+
+model Agent {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  name          String   @default("Default Agent")
+  config        Json     @default("{}")
+  isActive      Boolean  @default(false)
+  totalTrades   Int      @default(0)
+  totalProfit   Decimal  @default(0) @db.Decimal(20, 9)
+  totalLoss     Decimal  @default(0) @db.Decimal(20, 9)
+  lastRunAt     DateTime?
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, isActive])
+  @@map("agents")
+}
+
+model ScanLog {
+  id            String   @id @default(cuid())
+  mintAddress   String
+  riskScore     Int
+  riskFactors   Json
+  warningsCount Int      @default(0)
+  source        String   @default("api")
+  createdAt     DateTime @default(now())
+
+  @@index([mintAddress, createdAt])
+}
+
+model SystemStat {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+enum Plan {
+  FREE
+  PRO
+  VIP
+}
+
+enum TradeStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+enum AlertType {
+  NEW_TOKEN
+  PRICE_THRESHOLD
+  VOLUME_SPIKE
+  WHALE_ACTIVITY
+  RISK_ALERT
+  GRADUATION
+  CUSTOM
+}
