@@ -1,23 +1,62 @@
 /**
  * Standalone scanner — Hermes cron job
+ * Uses DexScreener API for trending Solana tokens
  */
-const HELIUS_API_KEY = "804ae9c7-3766-4d59-b93a-65ab76be19a6";
-
 async function main() {
   try {
-    const res = await fetch(`https://api.helius.xyz/v0/tokens/trending?api-key=${HELIUS_API_KEY}`);
-    const data = await res.json();
+    // Fetch boosted/trending tokens from DexScreener
+    const boostRes = await fetch("https://api.dexscreener.com/token-boosts/latest/v1", {
+      headers: { "User-Agent": "Mozilla/5.0" }
+    });
+    const boosts = await boostRes.json();
+
+    if (!Array.isArray(boosts) || boosts.length === 0) {
+      console.log(JSON.stringify({ timestamp: new Date().toISOString(), trending: [], error: "No trending tokens found" }));
+      return;
+    }
+
+    // Get unique token addresses (top 10)
+    const seen = new Set<string>();
+    const addresses: string[] = [];
+    for (const b of boosts) {
+      if (!seen.has(b.tokenAddress)) {
+        seen.add(b.tokenAddress);
+        addresses.push(b.tokenAddress);
+      }
+      if (addresses.length >= 10) break;
+    }
+
+    // Fetch pair data
+    const pairsRes = await fetch(
+      `https://api.dexscreener.com/tokens/v1/solana/${addresses.join(",")}`,
+      { headers: { "User-Agent": "Mozilla/5.0" } }
+    );
+    const pairsData = await pairsRes.json();
+
+    let trending: any[] = [];
+    if (Array.isArray(pairsData)) {
+      // Sort by volume 24h descending
+      const sorted = pairsData.sort((a: any, b: any) =>
+        (parseFloat(b?.volume?.h24) || 0) - (parseFloat(a?.volume?.h24) || 0)
+      );
+      trending = sorted.slice(0, 10).map((p: any) => ({
+        mint: p.baseToken?.address,
+        symbol: p.baseToken?.symbol,
+        name: p.baseToken?.name,
+        price: parseFloat(p.priceUsd) || 0,
+        priceFormatted: p.priceUsd,
+        change24h: p.priceChange?.h24 || 0,
+        volume24h: parseFloat(p.volume?.h24) || 0,
+        liquidity: parseFloat(p.liquidity?.usd) || 0,
+        marketCap: parseFloat(p.marketCap) || 0,
+        chain: p.chainId,
+        url: p.url,
+      }));
+    }
+
     const output = {
       timestamp: new Date().toISOString(),
-      trending: data?.slice(0, 10).map((t: any) => ({
-        mint: t.mint || t.address,
-        symbol: t.symbol,
-        name: t.name,
-        price: t.price,
-        change24h: t.priceChange24h,
-        volume24h: t.volume24h,
-        liquidity: t.liquidity,
-      }))
+      trending,
     };
     console.log(JSON.stringify(output));
   } catch (err: any) {

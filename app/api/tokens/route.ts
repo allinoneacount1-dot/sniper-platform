@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchTokens, getTokenPairs, toTokenData, DexPair } from '@/lib/dexscreener/client';
+import { getBoostedTokens, getTokenProfiles, getMultipleTokenPairs, getTokenPairs, toTokenData, DexPair } from '@/lib/dexscreener/client';
 import { analyzeRisk, gradeColor, gradeBgColor } from '@/lib/risk/engine';
 
 export const dynamic = 'force-dynamic';
@@ -8,7 +8,7 @@ export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'solana';
+    const type = searchParams.get('type') || 'trending'; // trending | boosted | profiles | search
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const mint = searchParams.get('mint');
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     if (mint) {
       const pairs = await getTokenPairs(mint);
       if (!pairs || pairs.length === 0) {
-        return NextResponse.json({ error: 'Token not found' }, { status: 404 });
+        return NextResponse.json({ error: 'Token not found on DexScreener' }, { status: 404 });
       }
       const token = toTokenData(pairs[0]);
       const risk = await analyzeRisk(mint);
@@ -29,24 +29,47 @@ export async function GET(request: NextRequest) {
           gradeBg: gradeBgColor(risk.grade),
           factors: risk.factors,
           warnings: risk.warnings,
+          info: risk.info,
           recommendation: risk.recommendation,
         },
       });
     }
 
-    // Search solana memecoins / trending
+    // Get token addresses from boosts + profiles, then fetch pair data
     let pairs: DexPair[] = [];
-    if (type === 'solana') {
-      pairs = await searchTokens('solana');
+
+    if (type === 'boosted') {
+      const boosted = await getBoostedTokens();
+      const addresses = boosted.slice(0, limit).map(b => b.tokenAddress);
+      pairs = await getMultipleTokenPairs(addresses);
+    } else if (type === 'profiles') {
+      const profiles = await getTokenProfiles();
+      const addresses = profiles.slice(0, limit).map(p => p.tokenAddress);
+      pairs = await getMultipleTokenPairs(addresses);
     } else {
-      pairs = await searchTokens(type);
+      // trending: combine boosts + profiles
+      const [boosted, profiles] = await Promise.all([
+        getBoostedTokens(),
+        getTokenProfiles(),
+      ]);
+      const addresses = [
+        ...boosted.slice(0, 10).map(b => b.tokenAddress),
+        ...profiles.slice(0, 10).map(p => p.tokenAddress),
+      ].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
+      pairs = await getMultipleTokenPairs(addresses.slice(0, limit));
     }
 
-    const sliced = pairs.slice(0, limit);
+    if (pairs.length === 0) {
+      return NextResponse.json({
+        source: 'dexscreener',
+        data: [],
+        count: 0,
+      });
+    }
 
-    // Enrich top 5 with risk scores
+    // Enrich with risk scores (limit to first 5 to avoid timeout)
     const enriched = await Promise.all(
-      sliced.slice(0, 5).map(async (p) => {
+      pairs.slice(0, 5).map(async (p) => {
         const token = toTokenData(p);
         try {
           const risk = await analyzeRisk(token.mint);
@@ -65,10 +88,11 @@ export async function GET(request: NextRequest) {
     );
 
     // Remaining tokens without risk score (fast)
-    const rest = sliced.slice(5).map(toTokenData);
+    const rest = pairs.slice(5).map(toTokenData);
 
     return NextResponse.json({
       source: 'dexscreener',
+      type,
       data: [...enriched, ...rest],
       count: enriched.length + rest.length,
     });

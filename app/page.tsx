@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { AnimatedButton, GlassCard, FloatingOrbs, Stagger, staggerItem, Badge } from "@/components/ui/animated";
@@ -93,12 +94,16 @@ function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
         >
-          <AnimatedButton variant="primary" size="lg" glow>
-            ⚡ Launch Dashboard
-          </AnimatedButton>
-          <AnimatedButton variant="secondary" size="lg">
-            📖 View Docs →
-          </AnimatedButton>
+          <Link href="/dashboard">
+            <AnimatedButton variant="primary" size="lg" glow>
+              ⚡ Launch Dashboard
+            </AnimatedButton>
+          </Link>
+          <Link href="/docs">
+            <AnimatedButton variant="secondary" size="lg">
+              📖 View Docs →
+            </AnimatedButton>
+          </Link>
         </motion.div>
 
         {/* Stats bar */}
