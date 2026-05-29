@@ -40,8 +40,8 @@ export async function getBoostedTokens(): Promise<BoostedToken[]> {
     const data = await res.json();
     if (!Array.isArray(data)) return [];
     return data
-      .filter((t: any) => t.chainId === 'solana')
-      .map((t: any) => ({
+      .filter((t: unknown) => t.chainId === 'solana')
+      .map((t: unknown) => ({
         chainId: t.chainId,
         tokenAddress: t.tokenAddress,
         description: t.description || '',
@@ -59,8 +59,8 @@ export async function getTokenProfiles(): Promise<TokenProfile[]> {
     const data = await res.json();
     if (!Array.isArray(data)) return [];
     return data
-      .filter((t: any) => t.chainId === 'solana')
-      .map((t: any) => ({
+      .filter((t: unknown) => t.chainId === 'solana')
+      .map((t: unknown) => ({
         chainId: t.chainId,
         tokenAddress: t.tokenAddress,
         icon: t.icon || '',

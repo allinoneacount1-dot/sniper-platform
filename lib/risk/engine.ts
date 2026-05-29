@@ -4,7 +4,7 @@ import { heliusRpc } from '@/lib/solana/connection';
 
 const SPL_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-const PUMP_FUN_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
+// pump.fun program: 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P
 
 export interface RiskFactors {
   mintAuthority: boolean;
@@ -50,7 +50,7 @@ export async function analyzeRisk(mintAddress: string): Promise<RiskResult> {
   let priceUsd = 0;
   let marketCap = 0;
   let hasMetadata = false;
-  let isPumpFun = mintAddress.endsWith('pump');
+  const isPumpFun = mintAddress.endsWith('pump');
   let creatorHoldsHigh = false;
 
   // 1. On-chain account info
@@ -92,7 +92,7 @@ export async function analyzeRisk(mintAddress: string): Promise<RiskResult> {
     const largestAccounts = await heliusRpc('getTokenLargestAccounts', [mintAddress]);
     if (largestAccounts?.value?.length > 0) {
       const accounts = largestAccounts.value;
-      const total = accounts.reduce((sum: number, a: any) => sum + Number(a.amount), 0);
+      const total = accounts.reduce((sum: number, a: unknown) => sum + Number(a.amount), 0);
       if (total > 0) {
         topHolderPct = (Number(accounts[0].amount) / total) * 100;
         holderCount = accounts.length;

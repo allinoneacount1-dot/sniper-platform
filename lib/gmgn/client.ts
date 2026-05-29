@@ -55,7 +55,7 @@ export async function getTokenInfo(mintAddress: string): Promise<GmgnToken | nul
   }
 }
 
-export async function getTokenTrades(mintAddress: string, limit: number = 20): Promise<any[]> {
+export async function getTokenTrades(mintAddress: string, limit: number = 20): Promise<unknown[]> {
   try {
     const res = await fetch(
       `${GMGN_BASE}/tokens/sol/${mintAddress}/trades?limit=${limit}`,
@@ -68,7 +68,7 @@ export async function getTokenTrades(mintAddress: string, limit: number = 20): P
   }
 }
 
-function normalizeToken(t: any): GmgnToken {
+function normalizeToken(t: unknown): GmgnToken {
   return {
     mint: t.mint || t.address || t.token_address,
     symbol: t.symbol || t.token_symbol || null,

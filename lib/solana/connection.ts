@@ -15,7 +15,7 @@ export function getConnection(): Connection {
   return connection;
 }
 
-export async function heliusRpc(method: string, params: any = []): Promise<any> {
+export async function heliusRpc(method: string, params: unknown = []): Promise<any> {
   const response = await fetch(HELIUS_RPC, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -4,7 +4,7 @@ import { analyzeRisk } from '@/lib/risk/engine';
 
 const TELEGRAM_API = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
 
-export async function sendTelegramMessage(chatId: string, text: string, options?: any) {
+export async function sendTelegramMessage(chatId: string, text: string, options?: unknown) {
   const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -19,7 +19,7 @@ export async function sendTelegramMessage(chatId: string, text: string, options?
   return res.json();
 }
 
-export async function handleWebhookUpdate(update: any) {
+export async function handleWebhookUpdate(update: unknown) {
   const message = update.message;
   if (!message) return;
 
@@ -73,7 +73,7 @@ export async function handleWebhookUpdate(update: any) {
       msg += `🔗 <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/${mint}">View on Dashboard</a>`;
 
       await sendTelegramMessage(chatId, msg);
-    } catch (error: any) {
+    } catch (error: unknown) {
       await sendTelegramMessage(chatId, `❌ Scan failed: ${error.message}`);
     }
     return;

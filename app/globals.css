@@ -1,32 +1,8 @@
 @import "tailwindcss";
 
-:root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #0f0f1a;
-  --accent-violet: #8b5cf6;
-  --accent-indigo: #6366f1;
-}
-
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
-}
-
-*::-webkit-scrollbar {
-  width: 6px;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
-  border-radius: 3px;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.5);
 }
 
 html {
@@ -34,19 +10,25 @@ html {
 }
 
 body {
-  background: var(--bg-primary);
+  background: #0a0a0f;
   color: white;
   font-family: system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
 }
 
-/* Glow selection */
 ::selection {
   background: rgba(139, 92, 246, 0.3);
   color: white;
 }
 
-/* Animated gradient text */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-33.33%); }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
 .gradient-text {
   background: linear-gradient(135deg, #8b5cf6, #6366f1, #a78bfa, #818cf8);
   background-size: 300% 300%;
@@ -59,95 +41,4 @@ body {
 @keyframes gradient-shift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
-}
-
-/* Glassmorphism base */
-.glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Pulse ring animation */
-@keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(2); opacity: 0; }
-}
-
-.pulse-ring::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 2px solid currentColor;
-  animation: pulse-ring 2s ease-out infinite;
-}
-
-/* Cyber grid */
-.cyber-grid {
-  background-image:
-    linear-gradient(rgba(139, 92, 246, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-
-/* Neon glow */
-.neon-violet {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), 0 0 40px rgba(139, 92, 246, 0.1);
-}
-
-.neon-green {
-  box-shadow: 0 0 20px rgba(52, 211, 153, 0.3), 0 0 40px rgba(52, 211, 153, 0.1);
-}
-
-.neon-red {
-  box-shadow: 0 0 20px rgba(248, 113, 113, 0.3), 0 0 40px rgba(248, 113, 113, 0.1);
-}
-
-/* Shine effect on hover */
-.shine {
-  position: relative;
-  overflow: hidden;
-}
-
-.shine::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    transparent 100%
-  );
-  transform: rotate(30deg) translateX(-100%);
-  transition: transform 0.6s;
-}
-
-.shine:hover::after {
-  transform: rotate(30deg) translateX(100%);
-}
-
-/* Floating animation */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-.float {
-  animation: float 6s ease-in-out infinite;
-}
-
-/* Typewriter cursor */
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-
-.cursor-blink::after {
-  content: '|';
-  animation: blink 1s step-end infinite;
 }

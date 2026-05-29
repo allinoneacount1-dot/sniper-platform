@@ -17,11 +17,9 @@ export async function POST(request: Request) {
   try {
     await runTokenScanner();
     return NextResponse.json({ success: true, timestamp: new Date().toISOString() });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Scan failed' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Scan failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
