@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, useInView, useSpring, useTransform, useMotionValue } from "framer-motion";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Shield, AlertTriangle, TrendingUp, TrendingDown, Droplets,
-  Activity, BarChart3, ExternalLink, ArrowLeft, Zap, Clock,
+  Shield, AlertTriangle, TrendingUp, Droplets,
+  Activity, BarChart3, ExternalLink, ArrowLeft, Clock,
   CheckCircle, XCircle, Info,
 } from "lucide-react";
 
@@ -126,7 +126,7 @@ export default function TokenDetail() {
   const [data, setData] = useState<TokenDetail>({ token: null, loading: true });
   const [lastUpdate, setLastUpdate] = useState("");
 
-  const fetchToken = async () => {
+  const fetchToken = useCallback(async () => {
     setData({ token: null, loading: true });
     try {
       const res = await fetch(`/api/tokens?mint=${mint}`);
@@ -137,9 +137,10 @@ export default function TokenDetail() {
     } catch (e: unknown) {
       setData({ token: null, loading: false, error: e instanceof Error ? e.message : "Failed" });
     }
-  };
+  }, [mint]);
 
-  useEffect(() => { fetchToken(); }, [mint]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchToken(); }, [fetchToken]);
 
   if (data.loading) {
     return (
@@ -203,7 +204,7 @@ export default function TokenDetail() {
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <Clock className="w-3 h-3" />
-              {lastUpdated}
+              {lastUpdate}
             </div>
           </div>
         </motion.div>

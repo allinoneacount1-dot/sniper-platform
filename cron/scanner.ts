@@ -19,7 +19,7 @@ export async function runTokenScanner() {
     ]);
 
     const allTokens = [...newTokens, ...pumpTokens];
-    const uniqueMints = new Map();
+    const uniqueMints = new Map<string, unknown>();
 
     for (const token of allTokens) {
       const mint = token.mint;
@@ -52,32 +52,32 @@ export async function runTokenScanner() {
           where: { mintAddress: mint },
           create: {
             mintAddress: mint,
-            symbol: tokenData.symbol || null,
-            name: tokenData.name || null,
-            decimals: tokenData.decimals || 6,
+            symbol: (tokenData as { symbol?: string }).symbol || null,
+            name: (tokenData as { name?: string }).name || null,
+            decimals: (tokenData as { decimals?: number }).decimals || 6,
             riskScore: risk.score,
-            riskFactors: risk.factors as any,
+            riskFactors: risk.factors,
             topHolderPct: risk.factors.topHolderPct,
             holderCount: risk.factors.holderCount,
-            liquidityUsd: tokenData.liquidity || risk.factors.liquidityUsd,
-            volumeUsd24h: tokenData.volume24hr || risk.factors.volumeUsd24h,
-            priceUsd: tokenData.price || risk.factors.priceUsd,
+            liquidityUsd: (tokenData as { liquidity?: number }).liquidity || risk.factors.liquidityUsd,
+            volumeUsd24h: (tokenData as { volume24hr?: number }).volume24hr || risk.factors.volumeUsd24h,
+            priceUsd: (tokenData as { price?: number }).price || risk.factors.priceUsd,
             marketCap: risk.factors.marketCap,
             isPumpFun: mint.endsWith('pump'),
-            creator: tokenData.creator,
+            creator: (tokenData as { creator?: string }).creator,
           },
           update: {
             riskScore: risk.score,
-            riskFactors: risk.factors as any,
-            liquidityUsd: tokenData.liquidity || risk.factors.liquidityUsd,
-            volumeUsd24h: tokenData.volume24hr || risk.factors.volumeUsd24h,
+            riskFactors: risk.factors,
+            liquidityUsd: (tokenData as { liquidity?: number }).liquidity || risk.factors.liquidityUsd,
+            volumeUsd24h: (tokenData as { volume24hr?: number }).volume24hr || risk.factors.volumeUsd24h,
             updatedAt: new Date(),
           },
         });
 
         // Trigger alerts for high-risk tokens
         if (risk.score < 30) {
-          await triggerAlerts(mint, risk);
+          await triggerAlerts(mint);
         }
       } catch (err) {
         console.error(`[Scanner] Error scanning ${mint}:`, err);
@@ -97,7 +97,7 @@ export async function runTokenScanner() {
   }
 }
 
-async function triggerAlerts(mint: string, risk: any) {
+async function triggerAlerts(mint: string) {
   const alerts = await prisma.alert.findMany({
     where: { type: 'RISK_ALERT', isActive: true },
     include: { user: true },

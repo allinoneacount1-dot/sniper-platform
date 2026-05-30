@@ -3,8 +3,8 @@
 import { useState, useRef } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import {
-  Shield, Zap, Code, Play, Copy, Check,
-  BookOpen, ArrowRight, AlertTriangle,
+  Zap, Code, Play, Copy, Check,
+  BookOpen, ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 

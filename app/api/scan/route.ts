@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         data: {
           mintAddress: mint,
           riskScore: result.score,
-          riskFactors: result.factors as any,
+          riskFactors: result.factors,
           warningsCount: result.warnings.length,
           source: 'api',
         },
@@ -36,9 +36,9 @@ export async function GET(request: NextRequest) {
       gradeColor: gradeColor(result.grade),
       gradeBg: gradeBgColor(result.grade),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: error.message || 'Scan failed' },
+      { error: (error as Error).message || 'Scan failed' },
       { status: 500 }
     );
   }
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { mints } = body;
+    const { mints } = body as { mints: string[] };
 
     if (!Array.isArray(mints) || mints.length === 0) {
       return NextResponse.json({ error: 'Provide array of mint addresses' }, { status: 400 });
@@ -58,16 +58,16 @@ export async function POST(request: NextRequest) {
         try {
           const result = await analyzeRisk(mint);
           return { mint, ...result, error: null };
-        } catch (e: any) {
-          return { mint, score: 0, grade: 'F', error: e.message };
+        } catch (e: unknown) {
+          return { mint, score: 0, grade: 'F' as const, error: (e as Error).message };
         }
       })
     );
 
     return NextResponse.json({ results, count: results.length });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: error.message || 'Batch scan failed' },
+      { error: (error as Error).message || 'Batch scan failed' },
       { status: 500 }
     );
   }

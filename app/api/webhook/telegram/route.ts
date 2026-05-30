@@ -7,11 +7,11 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const update = await request.json();
-    await handleWebhookUpdate(update);
+    await handleWebhookUpdate(update as unknown);
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Telegram webhook error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 

@@ -6,26 +6,29 @@
   --cyan-glow: 34, 211, 238;
   --emerald-glow: 16, 185, 129;
   --red-glow: 239, 68, 68;
-  --bg-primary: #06060c;
-  --bg-secondary: #0a0a14;
-  --bg-card: rgba(255, 255, 255, 0.02);
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --neon-green: 82, 255, 120;
+  --neon-pink: 255, 82, 176;
+  --bg-primary: #050510;
+  --bg-secondary: #0a0a1a;
+  --bg-card: rgba(10, 10, 26, 0.8);
+  --border-subtle: rgba(82, 255, 120, 0.1);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+  scrollbar-color: rgba(82,255,120,0.4) transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 *::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(5, 5, 16, 0.8);
 }
 *::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
-  border-radius: 3px;
+  background: rgba(82, 255, 120, 0.4);
+  border-radius: 4px;
+  border: 1px solid rgba(82, 255, 120, 0.2);
 }
 
 html {
@@ -34,8 +37,47 @@ html {
 
 body {
   background: var(--bg-primary);
-  color: white;
+  color: rgb(82, 255, 120);
   overflow-x: hidden;
+  position: relative;
+}
+
+/* CRT SCANLINE EFFECT */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  animation: scanline-flicker 0.1s infinite;
+}
+
+@keyframes scanline-flicker {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.85; }
+}
+
+/* CRT CURVE EFFECT */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+  z-index: 9998;
 }
 
 /* ═══ GLOW ORBS ═══ */

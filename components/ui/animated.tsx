@@ -1,7 +1,7 @@
 "use client";
 // @ts-nocheck — framer-motion HTML element type conflicts with React 19 types
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, type ReactNode, type ButtonHTMLAttributes } from "react";
+import { type ReactNode, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 // ─── Animated Button ───────────────────────────────────────────────

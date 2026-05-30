@@ -19,8 +19,18 @@ export async function sendTelegramMessage(chatId: string, text: string, options?
   return res.json();
 }
 
+interface TelegramMessage {
+  chat: { id: number | string };
+  text?: string;
+}
+
+interface TelegramUpdate {
+  message?: TelegramMessage;
+}
+
 export async function handleWebhookUpdate(update: unknown) {
-  const message = update.message;
+  const typedUpdate = update as TelegramUpdate;
+  const message = typedUpdate.message;
   if (!message) return;
 
   const chatId = message.chat.id.toString();
@@ -74,7 +84,7 @@ export async function handleWebhookUpdate(update: unknown) {
 
       await sendTelegramMessage(chatId, msg);
     } catch (error: unknown) {
-      await sendTelegramMessage(chatId, `❌ Scan failed: ${error.message}`);
+      await sendTelegramMessage(chatId, `❌ Scan failed: ${(error as Error).message}`);
     }
     return;
   }
